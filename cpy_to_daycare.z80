@@ -1,0 +1,32 @@
+mcpy_to_daycare:: ; copy 55 "bytes" from the PC boxes to $def5, which stores pokemon in the day care
+                  ; pokemon crystal uses 0x50 terminated strings, and all box names are terminated 
+                  ; we dont want a 50 written every 9 bytes, so every time 50 is encountered, we 
+                  ; skip it and ignore it. but the name fields do need to be terminated, so we need
+                  ; a character that replaces the terminator that we can input. I arbitrarily chose
+                  ; "-", it's not a character that comes up much.
+                  ; $def5 stores "is there a pokemon in the daycare", so the downside here is that 
+                  ; this bit needs to be set to some value (81/"B" works) to get it to properly work
+			ld e, 0 ; loop counter
+			ld d, 93 ; "-" to compare against to insert terminators
+            ld h, db ; pc box starts at db75
+            ld l, 75
+            ld b, de ; daycare starts at def5 
+            ld c, f5
+.loopStart: ld a, (hl) ; read the value into a 
+			sub 50 ; check if this is a terminator
+			jr z, .termRead
+			sub d ; check if should insert terminator
+			jr z, .termWrite
+			sub 1d ; should underflow and reset A to the original value
+.writeVal:	ld (bc), a ; write the value into (bc)
+			inc bc
+			inc hl
+			inc e ; increment loop counter
+			ld a, e
+			sub 37 ; have we written 55 bytes (ignoring terminators)?
+			jr nz, .loopStart
+			ret
+.termWrite:	ld a, 50
+			jr .writeVal
+.termRead:	inc hl
+			jr .loopStart

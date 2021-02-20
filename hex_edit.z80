@@ -1,0 +1,45 @@
+byte_reader::   ; take the alnum values at [HL], [HL+1] and convert them into hex, 
+                ; eg, if [HL] was a1 ("b") and [HL+1] was fc ("6"), the function returns 0xb6
+                ; does not deal with bad input
+                ; 144 cycles, 28 bytes
+                ; inserted at $da40
+            ldi a, [hl] ; ld a, hl; inc hl, optimized internally
+            bit 6, a ; 0-9 are f6-ff, a-f are a0-a5. 
+                     ; testing bit 6 easily distinguishes them in 8 cycles
+            jr z, .letter
+            sub f6 ; "0" -> 0, ..., "9" -> 9
+            jr .next
+.letter:    sub 96 ; "a" -> a, ..., "f" -> f
+.next:      swap a ; place these bits (the high nibble) in the correct place
+            ld b, a
+            ld a, (hl)
+            bit 6, a
+            jr z, .letter2
+            sub f6
+            jr .final
+.letter2:   sub 96 
+.final:     add b
+            ret
+
+hex_edit::      ; effect: write the byte specified by the first two characters of PC box 1
+                ; to the memory address specified by the first four characters of PC box 2
+                ; eg, Box 1: "f5", Box 2: "da1d", execute: ld da1d, f5
+                ; 564 cycles, but 20 bytes; given this has to be input incredibly tediously, 
+                ; I'll take the slowdown
+                ; inserted at $da5c
+            ld h, db
+            ld l, 7e
+            call byte_reader ; 168 cycles
+            ld d, a
+            inc l
+            call byte_reader
+            ld e, a
+            ld l, 75
+            call byte_reader
+            ld [de], a
+            ret
+
+; TODO: optimize this further, now that both are in memory and we can edit at will using:
+; TM_14 x92
+; TM_27 x3
+; TM_10 x?
